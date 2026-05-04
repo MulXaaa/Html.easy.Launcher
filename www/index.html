@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, landscape">
+    <title>FINAL GLASS OS</title>
+    <script src="capacitor.js"></script>
+    <style>
+        /* --- 1. 基础样式与毛玻璃 --- */
+        body, html { margin: 0; padding: 0; height: 100%; font-family: "Microsoft YaHei", sans-serif; overflow: hidden; background: #000; }
+        .glass { background: rgba(255, 255, 255, 0.7) !important; backdrop-filter: blur(25px) saturate(180%); -webkit-backdrop-filter: blur(25px) saturate(180%); border: 1px solid rgba(255, 255, 255, 0.4); }
+
+        /* --- 2. SVG 背景 --- */
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+
+        /* --- 3. 主屏幕布局 (加大字号适配 5 英寸) --- */
+        #main-screen { display: flex; flex-direction: column; height: 100vh; padding: 20px 40px; box-sizing: border-box; }
+        #clock { font-size: 150px; font-weight: 900; color: #fff; line-height: 0.8; letter-spacing: -5px; text-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        #date-line { font-size: 32px; font-weight: 900; color: #fff; margin-top: 15px; opacity: 0.9; }
+        .pill-battery { background: rgba(0,0,0,0.5); padding: 12px 25px; border-radius: 40px; color: #fff; position: absolute; top: 30px; right: 50px; font-weight: 900; font-size: 28px; display: flex; align-items: center; gap: 10px; }
+
+        /* --- 4. 特大 App 图标 (150px) --- */
+        .app-grid { display: flex; justify-content: center; align-items: center; flex: 1; gap: 20px; }
+        .app-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+        .icon-box { width: 150px; height: 150px; border-radius: 45px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; transition: 0.3s; }
+        .icon-box:active { transform: scale(0.9); }
+        .svg-icon { width: 80px; height: 80px; fill: #1C1B1F; }
+        .app-label { font-size: 24px; font-weight: 900; color: #fff; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+
+        /* --- 5. 独立隔离窗口系统 --- */
+        .window { position: fixed; top: 0; left: 0; width: 100%; height: 100%; transform: translateY(100%); transition: 0.4s cubic-bezier(0.1, 0.8, 0.2, 1); z-index: 100; display: flex; flex-direction: column; visibility: hidden; }
+        .window.active { transform: translateY(0); visibility: visible; }
+
+        .win-header { padding: 25px 40px; display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; background: rgba(255,255,255,0.3); border-bottom: 1px solid rgba(255,255,255,0.3); }
+        .back-pill { justify-self: start; background: #1C1B1F; color: #fff; padding: 15px 45px; border-radius: 60px; font-size: 26px; font-weight: 900; cursor: pointer; }
+        .win-title { justify-self: center; font-size: 40px; font-weight: 900; color: #1C1B1F; }
+
+        .win-content { flex: 1; overflow-y: auto; padding: 30px 50px; color: #1C1B1F; }
+
+        /* 内容卡片 */
+        .card { background: rgba(255,255,255,0.6); padding: 25px; border-radius: 25px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 26px; font-weight: 900; border: 1px solid rgba(255,255,255,0.2); }
+        
+        /* 设置表单独立样式 */
+        .form-row { margin-bottom: 25px; }
+        .form-row label { display: block; font-size: 22px; font-weight: 900; margin-bottom: 10px; }
+        .form-row input { width: 100%; padding: 20px; border-radius: 15px; border: 2px solid #1C1B1F; background: #fff; font-size: 24px; box-sizing: border-box; font-weight: bold; }
+        .save-btn { width: 100%; padding: 20px; border-radius: 60px; background: #1C1B1F; color: #fff; font-weight: 900; font-size: 26px; border: none; margin-top: 10px; }
+        .sys-btn { width: 100%; padding: 20px; border-radius: 40px; background: #ff5252; color: #fff; text-align: center; font-size: 24px; font-weight: 900; margin-top: 30px; cursor: pointer; }
+
+        /* 日历表格 */
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; }
+        .cal-day { padding: 15px; font-weight: 900; font-size: 26px; border-radius: 15px; }
+        .cal-today { background: #1C1B1F; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <!-- 离线 SVG 背景 -->
+    <svg id="bg-canvas" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid slice">
+        <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#4facfe"/><stop offset="100%" style="stop-color:#00f2fe"/></linearGradient></defs>
+        <rect width="1000" height="500" fill="url(#g)" />
+        <circle cx="200" cy="100" r="300" fill="#fff" opacity="0.2"/><circle cx="800" cy="400" r="200" fill="#fff" opacity="0.2"/>
+    </svg>
+
+    <!-- 主界面 -->
+    <div id="main-screen">
+        <div id="clock">00:00</div>
+        <div id="date-line">...</div>
+        <div class="pill-battery"><span id="bat-val">100%</span><svg width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="3" stroke="#fff" fill="none" stroke-width="2.5"/></svg></div>
+
+        <div class="app-grid">
+            <div class="app-item" onclick="launchVideo()"><div class="icon-box glass"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 3v2h-2V3H8v2H6V3H4v18h2v-2h2v2h8v-2h2v2h2V3h-2z"/></svg></div><div class="app-label">视频</div></div>
+            <div class="app-item" onclick="launchSmart('gallery')"><div class="icon-box glass"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 19V5H3v14h18zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div><div class="app-label">相册</div></div>
+            <div class="app-item" onclick="launchSmart('music')"><div class="icon-box glass"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg></div><div class="app-label">音乐</div></div>
+            <div class="app-item" onclick="launchCal()"><div class="icon-box glass"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/></svg></div><div class="app-label">日历</div></div>
+            <div class="app-item" onclick="launchCam()"><div class="icon-box glass"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M9 2L7 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3L15 2H9z"/></svg></div><div class="app-label">相机</div></div>
+            <div class="app-item" onclick="openWindow('win-set', '系统设置')"><div class="icon-box glass"><svg class="svg-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58-1.92-3.32-2.39.96-1.62-.94-.36-2.54h-3.84l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96-1.92 3.32 2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58 1.92 3.32 2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54h3.84l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c2.39.96 1.92-3.32-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg></div><div class="app-label">设置</div></div>
+        </div>
+    </div>
+
+    <!-- 1. 视频/相册/音乐 列表窗口 -->
+    <div id="win-list" class="window glass">
+        <div class="win-header"><div class="back-pill" onclick="closeWindow('win-list')">返回</div><div class="win-title" id="list-title">列表</div><div></div></div>
+        <div class="win-content" id="list-cont"></div>
+    </div>
+
+    <!-- 2. 日历专用窗口 -->
+    <div id="win-cal" class="window glass">
+        <div class="win-header"><div class="back-pill" onclick="closeWindow('win-cal')">返回</div><div class="win-title">月视图日历</div><div></div></div>
+        <div class="win-content" id="cal-cont"></div>
+    </div>
+
+    <!-- 3. 设置专用窗口 (全部静态 HTML，绝不黑屏) -->
+    <div id="win-set" class="window glass">
+        <div class="win-header"><div class="back-pill" onclick="closeWindow('win-set')">返回</div><div class="win-title">系统设置</div><div></div></div>
+        <div class="win-content">
+            <div class="form-row"><label>视频自定义扫描路径</label><input id="iv" value="Video"></div>
+            <div class="form-row"><label>手动置顶视频 (输入完整文件名)</label>
+                <div style="display:flex; gap:10px"><input id="ip" style="flex:1" placeholder="例如: movie.mp4"><button onclick="addPin()" style="background:#1C1B1F; color:#fff; padding:0 20px; border-radius:12px; font-weight:bold; border:none">确定</button></div>
+            </div>
+            <div id="pin-manager"></div>
+            <button class="save-btn" onclick="saveCfg()">保存路径设置</button>
+            <div class="sys-btn" onclick="Capacitor.Plugins.App.openSettings()">🔓 进入手机原生系统设置</div>
+        </div>
+    </div>
+
+    // 当点击视频 App 时调用
+async function scanVideos() {
+    try {
+        // 1. 检查并请求读取权限
+        const { Filesystem } = Capacitor.Plugins;
+        const status = await Filesystem.requestPermissions();
+        
+        if (status.publicStorage === 'granted') {
+            // 2. 读取手机存储中的 Video 文件夹
+            const result = await Filesystem.readdir({
+                path: 'Video',
+                directory: 'EXTERNAL_STORAGE'
+            });
+            
+            console.log("找到视频列表:", result.files);
+            // 这里你可以根据 result.files 去刷新你的 MD3 列表界面
+        }
+    } catch (e) {
+        console.log("环境不是安卓或权限拒绝:", e);
+        // 如果在电脑预览，可以显示一些假数据测试
+        renderVideos(); 
+    }
+}
+
+    <script>
+        const { Filesystem, Device, App, Camera } = Capacitor.Plugins;
+        let cfg = JSON.parse(localStorage.getItem('glass_os_final') || '{"v_path":"Video","pins":[]}');
+
+        // 1. 时间修复
+        function tick() {
+            const d = new Date();
+            document.getElementById('clock').innerText = d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0');
+            const weeks = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
+            document.getElementById('date-line').innerText = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${weeks[d.getDay()]}`;
+        }
+        setInterval(tick, 1000); tick();
+
+        // 2. 窗口切换
+        function openWindow(id, title) { 
+            if(title) document.getElementById('list-title').innerText = title;
+            document.getElementById(id).classList.add('active'); 
+            if(id === 'win-set') renderPins();
+        }
+        function closeWindow(id) { document.getElementById(id).classList.remove('active'); }
+
+        // 3. 视频扫描 (带置顶排序)
+        async function launchVideo() {
+            openWindow('win-list', '视频列表');
+            const el = document.getElementById('list-cont'); el.innerHTML = "扫描视频中...";
+            try {
+                const res = await Filesystem.readdir({ path: cfg.v_path, directory: 'EXTERNAL_STORAGE' });
+                const sorted = res.files.sort((a,b) => cfg.pins.includes(b.name) - cfg.pins.includes(a.name));
+                el.innerHTML = sorted.map(f => `<div class="card"><span>${cfg.pins.includes(f.name)?'📌 ':''}${f.name}</span></div>`).join('');
+            } catch(e) { el.innerHTML = "未发现文件。"; }
+        }
+
+        // 4. 智能相册/音乐扫描
+        async function launchSmart(type) {
+            openWindow('win-list', type==='gallery'?'智能相册':'音乐列表');
+            const el = document.getElementById('list-cont'); el.innerHTML = "正在全智能扫描...";
+            const paths = type==='gallery' ? ['DCIM/Camera','Pictures','DCIM'] : ['Music','Download'];
+            let all = [];
+            for(let p of paths) { try { const r = await Filesystem.readdir({path:p, directory:'EXTERNAL_STORAGE'}); r.files.forEach(f=>all.push(f.name)); } catch(e){} }
+            el.innerHTML = all.map(n => `<div class="card"><span>${n}</span></div>`).join('') || "未扫描到文件";
+        }
+
+        // 5. 日历
+        function launchCal() {
+            openWindow('win-cal');
+            const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+            const first = new Date(y, m, 1).getDay(), total = new Date(y, m+1, 0).getDate();
+            let h = '<div class="cal-grid">';
+            ["日","一","二","三","四","五","六"].forEach(d => h += `<div style="color:#000; font-weight:900">${d}</div>`);
+            for(let i=0; i<first; i++) h += '<div></div>';
+            for(let d=1; d<=total; d++) {
+                const s = d === now.getDate() ? 'cal-today' : '';
+                h += `<div class="cal-day ${s}">${d}</div>`;
+            }
+            document.getElementById('cal-cont').innerHTML = h + '</div>';
+        }
+
+        // 6. 设置逻辑 (window 挂载确保按钮可用)
+        window.saveCfg = function() { cfg.v_path = document.getElementById('iv').value; save(); alert("已保存"); };
+        window.addPin = function() { const v = document.getElementById('ip').value.trim(); if(v) { cfg.pins.push(v); renderPins(); save(); document.getElementById('ip').value=""; } };
+        window.delPin = function(n) { cfg.pins = cfg.pins.filter(i => i !== n); renderPins(); save(); };
+        function renderPins() {
+            const box = document.getElementById('pin-manager');
+            box.innerHTML = cfg.pins.map(n => `<div class="card" style="font-size:18px; padding:15px"><span>📌 ${n}</span><span style="color:red" onclick="delPin('${n}')">删除</span></div>`).join('');
+        }
+        function save() { localStorage.setItem('glass_os_final', JSON.stringify(cfg)); }
+
+        async function getBat() { try { const i = await Device.getBatteryInfo(); document.getElementById('bat-val').innerText = Math.round(i.batteryLevel*100)+"%"; } catch(e){} }
+        getBat();
+        function launchCam() { Camera.getPhoto({quality:90, resultType:'uri'}).catch(()=>alert("相机启动")); }
+    </script>
+</body>
+</html>
