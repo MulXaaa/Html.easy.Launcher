@@ -15,23 +15,23 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22' # 升级到 22 满足最新版要求
+          node-version: '24' # 直接拉到最高版本
 
-      - name: Install Dependencies
+      - name: Install Tools
         run: |
+          npm install -g @capacitor/cli @capacitor/core
           npm install --force
-          npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/android@latest
 
-      - name: Add and Sync Android
+      - name: Build Android Project
         run: |
-          # 彻底清理旧目录
+          # 确保 www 文件夹存在，没有就建一个空的防止报错
+          mkdir -p www
+          # 彻底清理并重新生成安卓壳子
           rm -rf android
-          # 重新生成安卓项目
           npx cap add android
-          # 将 H5 代码同步进去
           npx cap sync
 
-      - name: Build APK
+      - name: Build APK with Gradle
         run: |
           cd android
           chmod +x gradlew
@@ -40,5 +40,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: launcher-debug-apk
+          name: my-launcher-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
