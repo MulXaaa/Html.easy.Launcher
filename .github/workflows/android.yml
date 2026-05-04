@@ -2,7 +2,7 @@ name: Build APK
 on: [push]
 jobs:
   build:
-    runs-on: ubuntu-22.04  # 使用更稳定的 Ubuntu 版本
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -15,18 +15,20 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # 直接用最新的稳定版
+          node-version: '22' # 升级到 22 满足最新版要求
 
       - name: Install Dependencies
         run: |
           npm install --force
-          npm install @capacitor/android @capacitor/core @capacitor/cli @capacitor/filesystem @capacitor/device @capacitor/app @capacitor/camera
+          npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/android@latest
 
       - name: Add and Sync Android
         run: |
-          # 如果目录已存在则删除，防止冲突
+          # 彻底清理旧目录
           rm -rf android
+          # 重新生成安卓项目
           npx cap add android
+          # 将 H5 代码同步进去
           npx cap sync
 
       - name: Build APK
