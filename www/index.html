@@ -129,8 +129,53 @@ async function scanVideos() {
 }
 
     <script>
-        const { Filesystem, Device, App, Camera } = Capacitor.Plugins;
-        let cfg = JSON.parse(localStorage.getItem('glass_os_final') || '{"v_path":"Video","pins":[]}');
+      const { Filesystem, Device, App, Camera } = Capacitor.Plugins;
+let cfg = JSON.parse(localStorage.getItem('cfg_v12_final') || '{"v_path":"Video","pins":[]}');
+
+// 1. 核心授权函数：这是打开“防盗门”的钥匙
+async function requestAllPermissions() {
+    try {
+        // 请求存储权限 (针对安卓 11 以下和部分插件)
+        await Filesystem.requestPermissions();
+        console.log("权限申请已发出");
+    } catch (e) {
+        console.error("权限申请失败:", e);
+    }
+}
+
+// 2. 视频扫描 (加入更灵活的路径重试)
+async function launchVideo() {
+    openWindow('win-list', '视频列表');
+    const el = document.getElementById('list-cont');
+    el.innerHTML = "<p style='font-size:24px'>正在请求权限并扫描...</p>";
+
+    await requestAllPermissions(); // 先要权限
+
+    // 尝试多个可能的路径
+    const tryPaths = [cfg.v_path, 'Movies', 'Download', 'DCIM'];
+    let found = [];
+
+    for (let p of tryPaths) {
+        try {
+            const res = await Filesystem.readdir({ path: p, directory: 'EXTERNAL_STORAGE' });
+            res.files.forEach(f => found.push({name: f.name, path: p}));
+        } catch(e) {}
+    }
+
+    if (found.length > 0) {
+        // 置顶排序逻辑
+        found.sort((a,b) => cfg.pins.includes(b.name) - cfg.pins.includes(a.name));
+        el.innerHTML = found.map(f => `
+            <div class="card">
+                <span style="font-size:24px; font-weight:bold">${cfg.pins.includes(f.name)?'📌 ':''}${f.name}</span>
+                <span style="opacity:0.5; font-size:16px">${f.path}</span>
+            </div>
+        `).join('');
+    } else {
+        el.innerHTML = "<p style='font-size:24px; color:red'>未找到视频。请确认手机根目录有 Video 文件夹，并已在手机设置中手动开启“所有文件访问权限”。</p>";
+    }
+}
+// ... 保持其他 tick, getBat, launchCam 等函数不变 ...
 
         // 1. 时间修复
         function tick() {
