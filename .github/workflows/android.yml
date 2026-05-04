@@ -6,27 +6,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: set up JDK 17
+      - name: set up JDK 21 # 关键修复：升级到 Java 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # 直接拉到最高版本
+          node-version: '22'
 
       - name: Install Tools
         run: |
-          npm install -g @capacitor/cli @capacitor/core
+          npm install -g @capacitor/cli@latest
           npm install --force
 
       - name: Build Android Project
         run: |
-          # 确保 www 文件夹存在，没有就建一个空的防止报错
           mkdir -p www
-          # 彻底清理并重新生成安卓壳子
           rm -rf android
           npx cap add android
           npx cap sync
@@ -40,5 +38,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: my-launcher-apk
+          name: launcher-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
