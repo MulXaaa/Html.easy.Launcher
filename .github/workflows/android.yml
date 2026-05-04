@@ -10,9 +10,12 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - run: npm install
-      - run: npx cap add android
-      - run: npx cap sync
+      - name: Install Dependencies
+        run: npm install --force  # 强制安装，跳过版本冲突
+      - name: Add Android
+        run: npx cap add android
+      - name: Sync Code
+        run: npx cap sync
       - name: Build APK
         run: |
           cd android
@@ -21,5 +24,5 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v3
         with:
-          name: my-apk
+          name: my-launcher-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
