@@ -29,6 +29,17 @@ jobs:
           npx cap add android
           npx cap sync
 
+      - name: Build Android Project
+        run: |
+          mkdir -p www
+          rm -rf android
+          npx cap add android
+          npx cap sync
+          # --- 核心手术：强制注入文件读取权限 ---
+          sed -i '/<application/i <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/i <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />' android/app/src/main/AndroidManifest.xml
+
       - name: Build APK with Gradle
         run: |
           cd android
